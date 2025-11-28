@@ -12,9 +12,18 @@ export default function Home() {
 
   async function load(url) {
     try {
-      const res = await fetch(url);
-      const data = await res.json();
-      setAccounts(data);
+      const res = await fetch(`/api/proxy?url=${encodeURIComponent(url)}`);
+      const raw = await res.json();
+
+      if (raw.error || !raw.data || !raw.data.accounts) {
+        setError("Erro ao carregar API");
+        return;
+      }
+
+      // 🔥 Agora usamos a lista correta:
+      const list = raw.data.accounts;
+
+      setAccounts(list);
       setError(null);
     } catch (err) {
       setError("Erro ao carregar API");
@@ -32,9 +41,9 @@ export default function Home() {
   if (loading) return <div className="p-6 text-xl">Carregando...</div>;
   if (error) return <div className="p-6 text-xl text-red-500">{error}</div>;
 
-  const totalSLP = accounts.reduce((s,a)=>s+(a.totalSlp||0),0);
-  const totalWins = accounts.reduce((s,a)=>s+(a.wins||0),0);
-  const totalLosses = accounts.reduce((s,a)=>s+(a.losses||0),0);
+  const totalSLP = accounts.reduce((s, a) => s + (a.rewards?.slp || 0), 0);
+  const totalWins = accounts.reduce((s, a) => s + (a.fights?.win || 0), 0);
+  const totalLosses = accounts.reduce((s, a) => s + (a.fights?.loss || 0), 0);
 
   return (
     <div className="p-6 space-y-6">
@@ -52,49 +61,3 @@ export default function Home() {
           onClick={() => inputUrl.trim() && setApiUrl(inputUrl.trim())}
         >
           Carregar
-        </button>
-      </div>
-
-      <p className="text-sm text-gray-500">Atualizando automaticamente a cada 1 minuto…</p>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="p-4 bg-white shadow rounded-2xl">
-          <h2>Total SLP Farmado</h2>
-          <p className="text-2xl font-bold">{totalSLP}</p>
-        </div>
-        <div className="p-4 bg-white shadow rounded-2xl">
-          <h2>Vitórias Totais</h2>
-          <p className="text-2xl font-bold">{totalWins}</p>
-        </div>
-        <div className="p-4 bg-white shadow rounded-2xl">
-          <h2>Derrotas Totais</h2>
-          <p className="text-2xl font-bold">{totalLosses}</p>
-        </div>
-      </div>
-
-      <div className="bg-white shadow rounded-2xl p-4 overflow-x-auto">
-        <table className="w-full text-left">
-          <thead>
-            <tr className="border-b">
-              <th>Conta</th><th>SLP</th><th>Vitórias</th><th>Derrotas</th><th>Winrate</th>
-            </tr>
-          </thead>
-          <tbody>
-            {accounts.map((acc, i) => {
-              const wr = acc.wins+acc.losses>0 ? ((acc.wins/(acc.wins+acc.losses))*100).toFixed(1) : 0;
-              return (
-                <tr key={i} className="border-b hover:bg-gray-100">
-                  <td>{acc.account}</td>
-                  <td>{acc.totalSlp}</td>
-                  <td className="text-green-600">{acc.wins}</td>
-                  <td className="text-red-600">{acc.losses}</td>
-                  <td>{wr}%</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
-    </div>
-  );
-}
