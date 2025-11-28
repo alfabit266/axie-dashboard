@@ -1,13 +1,13 @@
 "use client";
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 
 export default function Home() {
   const [apiUrl, setApiUrl] = useState(
     "http://104.248.210.141:3000/api/accounts/performance"
   );
   const [inputUrl, setInputUrl] = useState("");
-  const [rawData, setRawData] = useState(null);
   const [accounts, setAccounts] = useState([]);
+  const [rawData, setRawData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -26,16 +26,19 @@ export default function Home() {
 
       const res = await fetch(`/api/proxy?url=${encodeURIComponent(url)}`);
       const raw = await res.json();
-
       setRawData(raw);
 
       let list = [];
       if (Array.isArray(raw)) list = raw;
       else if (Array.isArray(raw.accounts)) list = raw.accounts;
+      else if (raw.data && Array.isArray(raw.data.accounts))
+        list = raw.data.accounts;
 
       setAccounts(list);
     } catch (e) {
+      console.error(e);
       setError("Erro ao carregar API");
+      setAccounts([]);
     } finally {
       setLoading(false);
     }
@@ -47,20 +50,21 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [apiUrl]);
 
-  // Filtragem de dados
+  // Aplica filtros
   const filtered = useMemo(() => {
     return accounts.filter((acc) => {
-      const wr =
-        acc.wins + acc.losses > 0
-          ? (acc.wins / (acc.wins + acc.losses)) * 100
-          : 0;
+      const accNum = Number(acc.accountNumber || acc.account || 0);
+      const slp = acc.totalSlp || acc.rewards?.slp || 0;
+      const wins = acc.wins || acc.fights?.win || 0;
+      const losses = acc.losses || acc.fights?.loss || 0;
+      const wr = wins + losses > 0 ? (wins / (wins + losses)) * 100 : 0;
 
-      if (minAccount && acc.accountNumber < +minAccount) return false;
-      if (maxAccount && acc.accountNumber > +maxAccount) return false;
-      if (minSlp && acc.totalSlp < +minSlp) return false;
-      if (minWinrate && wr < +minWinrate) return false;
-      if (onlyConnected && !acc.isConnected) return false;
-      if (onlyFighting && !acc.isFighting) return false;
+      if (minAccount && accNum < Number(minAccount)) return false;
+      if (maxAccount && accNum > Number(maxAccount)) return false;
+      if (minSlp && slp < Number(minSlp)) return false;
+      if (minWinrate && wr < Number(minWinrate)) return false;
+      if (onlyConnected && acc.isConnected === false) return false;
+      if (onlyFighting && acc.isFighting === false) return false;
 
       return true;
     });
@@ -75,25 +79,33 @@ export default function Home() {
   ]);
 
   // Totais
-  const totalSLP = filtered.reduce((s, a) => s + (a.totalSlp || 0), 0);
-  const totalWins = filtered.reduce((s, a) => s + (a.wins || 0), 0);
-  const totalLosses = filtered.reduce((s, a) => s + (a.losses || 0), 0);
+  const totalSLP = filtered.reduce(
+    (s, a) => s + (a.totalSlp || a.rewards?.slp || 0),
+    0
+  );
+  const totalWins = filtered.reduce(
+    (s, a) => s + (a.wins || a.fights?.win || 0),
+    0
+  );
+  const totalLosses = filtered.reduce(
+    (s, a) => s + (a.losses || a.fights?.loss || 0),
+    0
+  );
   const winrateGeral =
     totalWins + totalLosses > 0
       ? ((totalWins / (totalWins + totalLosses)) * 100).toFixed(2)
       : 0;
 
   return (
-    <div className="space-y-10">
-
+    <div>
       {/* Header */}
-      <div className="text-center">
-        <h1 className="text-3xl font-bold text-blue-700">Axie Infinity – Painel de Contas</h1>
-        <p className="text-gray-600 mt-2">Estatísticas em tempo real, atualizadas automaticamente</p>
+      <div className="header">
+        <h1>Axie Infinity – Painel de Contas</h1>
+        <p>Estatísticas em tempo real das suas contas. Atualiza a cada 1 minuto.</p>
       </div>
 
-      {/* Input URL */}
-      <div className="flex gap-2 max-w-xl mx-auto">
+      {/* URL da API */}
+      <div className="url-row">
         <input
           className="input"
           placeholder="Cole aqui a URL da API..."
@@ -101,64 +113,99 @@ export default function Home() {
           onChange={(e) => setInputUrl(e.target.value)}
         />
         <button
-          onClick={() => inputUrl.trim() && setApiUrl(inputUrl.trim())}
           className="btn-blue"
+          onClick={() => inputUrl.trim() && setApiUrl(inputUrl.trim())}
         >
           Trocar API
         </button>
       </div>
 
-      {/* Loading / Erro */}
-      {loading && <p className="text-center text-lg">Carregando...</p>}
-      {error && <p className="text-center text-red-600 text-lg">{error}</p>}
+      {loading && <p style={{ textAlign: "center", marginTop: 16 }}>Carregando…</p>}
+      {error && (
+        <p style={{ textAlign: "center", marginTop: 16, color: "red" }}>{error}</p>
+      )}
 
-      {/* CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-
+      {/* Cards de resumo */}
+      <div className="cards-grid">
         <div className="card">
-          <h3 className="text-gray-600 text-sm">Total de Contas</h3>
-          <p className="text-3xl font-bold text-blue-700">{filtered.length}</p>
+          <div className="card-title">Contas filtradas</div>
+          <div className="card-value">{filtered.length}</div>
         </div>
 
         <div className="card">
-          <h3 className="text-gray-600 text-sm">Total SLP</h3>
-          <p className="text-3xl font-bold text-blue-700">{totalSLP}</p>
+          <div className="card-title">Total SLP (Filtro)</div>
+          <div className="card-value">{totalSLP}</div>
         </div>
 
         <div className="card">
-          <h3 className="text-gray-600 text-sm">Vitórias</h3>
-          <p className="text-3xl font-bold text-green-600">{totalWins}</p>
+          <div className="card-title">Vitórias (Filtro)</div>
+          <div className="card-value" style={{ color: "#16a34a" }}>
+            {totalWins}
+          </div>
         </div>
 
         <div className="card">
-          <h3 className="text-gray-600 text-sm">Winrate Geral</h3>
-          <p className="text-3xl font-bold text-purple-600">{winrateGeral}%</p>
+          <div className="card-title">Winrate Geral</div>
+          <div className="card-value" style={{ color: "#7c3aed" }}>
+            {winrateGeral}%
+          </div>
         </div>
       </div>
 
-      {/* FILTROS */}
-      <div className="card space-y-4">
-        <h2 className="text-xl font-semibold text-blue-700">Filtros</h2>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          <input className="input" placeholder="Conta mínima" value={minAccount} onChange={(e) => setMinAccount(e.target.value)} />
-          <input className="input" placeholder="Conta máxima" value={maxAccount} onChange={(e) => setMaxAccount(e.target.value)} />
-          <input className="input" placeholder="SLP mínimo" value={minSlp} onChange={(e) => setMinSlp(e.target.value)} />
-          <input className="input" placeholder="Winrate mínimo (%)" value={minWinrate} onChange={(e) => setMinWinrate(e.target.value)} />
+      {/* Filtros */}
+      <div className="card filters-card">
+        <div className="card-title" style={{ marginBottom: 4 }}>
+          Filtros rápidos
         </div>
 
-        <div className="flex gap-4 items-center">
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={onlyConnected} onChange={() => setOnlyConnected(!onlyConnected)} />
-            Somente Conectadas
+        <div className="filters-grid">
+          <input
+            className="input"
+            placeholder="Conta mínima ex: 1000"
+            value={minAccount}
+            onChange={(e) => setMinAccount(e.target.value)}
+          />
+          <input
+            className="input"
+            placeholder="Conta máxima ex: 2000"
+            value={maxAccount}
+            onChange={(e) => setMaxAccount(e.target.value)}
+          />
+          <input
+            className="input"
+            placeholder="SLP mínimo ex: 100"
+            value={minSlp}
+            onChange={(e) => setMinSlp(e.target.value)}
+          />
+          <input
+            className="input"
+            placeholder="Winrate mínimo (%) ex: 60"
+            value={minWinrate}
+            onChange={(e) => setMinWinrate(e.target.value)}
+          />
+        </div>
+
+        <div className="filters-checkboxes">
+          <label>
+            <input
+              type="checkbox"
+              checked={onlyConnected}
+              onChange={(e) => setOnlyConnected(e.target.checked)}
+            />{" "}
+            Mostrar apenas conectadas
           </label>
 
-          <label className="flex items-center gap-2">
-            <input type="checkbox" checked={onlyFighting} onChange={() => setOnlyFighting(!onlyFighting)} />
-            Somente em Luta
+          <label>
+            <input
+              type="checkbox"
+              checked={onlyFighting}
+              onChange={(e) => setOnlyFighting(e.target.checked)}
+            />{" "}
+            Mostrar apenas em luta
           </label>
 
           <button
+            className="btn-gray"
             onClick={() => {
               setMinAccount("");
               setMaxAccount("");
@@ -167,15 +214,14 @@ export default function Home() {
               setOnlyConnected(false);
               setOnlyFighting(false);
             }}
-            className="btn-gray"
           >
-            Limpar
+            Limpar filtros
           </button>
         </div>
       </div>
 
-      {/* TABELA */}
-      <div className="card overflow-auto">
+      {/* Tabela */}
+      <div className="table-wrapper">
         <table className="table">
           <thead>
             <tr>
@@ -189,30 +235,43 @@ export default function Home() {
           </thead>
           <tbody>
             {filtered.map((acc, i) => {
+              const wins = acc.wins || acc.fights?.win || 0;
+              const losses = acc.losses || acc.fights?.loss || 0;
+              const slp = acc.totalSlp || acc.rewards?.slp || 0;
               const wr =
-                acc.wins + acc.losses > 0
-                  ? ((acc.wins / (acc.wins + acc.losses)) * 100).toFixed(1)
+                wins + losses > 0
+                  ? ((wins / (wins + losses)) * 100).toFixed(1)
                   : 0;
+
+              let statusClass = "status-offline";
+              let statusLabel = "Offline";
+              if (acc.isFighting) {
+                statusClass = "status-fighting";
+                statusLabel = "Lutando";
+              } else if (acc.isConnected) {
+                statusClass = "status-online";
+                statusLabel = "Online";
+              }
 
               return (
                 <tr key={i}>
-                  <td>{acc.account}</td>
-                  <td>{acc.totalSlp}</td>
-                  <td className="text-green-600">{acc.wins}</td>
-                  <td className="text-red-600">{acc.losses}</td>
-                  <td>{wr}%</td>
-                  <td>
-                    {acc.isFighting ? (
-                      <span className="text-blue-700 font-semibold">Lutando</span>
-                    ) : acc.isConnected ? (
-                      <span className="text-green-700 font-semibold">Online</span>
-                    ) : (
-                      <span className="text-gray-500">Offline</span>
-                    )}
-                  </td>
+                  <td>{acc.accountNumber ?? acc.account ?? "-"}</td>
+                  <td>{slp}</td>
+                  <td style={{ color: "#16a34a" }}>{wins}</td>
+                  <td style={{ color: "#dc2626" }}>{losses}</td>
+                  <td>{wins + losses > 0 ? `${wr}%` : "-"}</td>
+                  <td className={statusClass}>{statusLabel}</td>
                 </tr>
               );
             })}
+
+            {!loading && filtered.length === 0 && (
+              <tr>
+                <td colSpan={6} style={{ padding: 16, textAlign: "center" }}>
+                  Nenhuma conta encontrada com esses filtros.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
