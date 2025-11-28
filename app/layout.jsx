@@ -1,3 +1,5 @@
+import "./globals.css";
+
 export const metadata = {
   title: "Axie Dashboard",
   description: "Painel de estatísticas das contas Axie Infinity",
