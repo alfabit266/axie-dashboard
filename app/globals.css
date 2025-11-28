@@ -1,6 +1,50 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Smooth Scroll */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Font + Background */
 body {
-  @apply bg-slate-950 text-slate-50;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* Cards Azuis */
+.card {
+  @apply bg-white shadow-md rounded-xl p-5 border border-gray-200 transition-transform;
+}
+
+.card:hover {
+  transform: scale(1.01);
+}
+
+/* Tabela estilo Pro */
+.table {
+  @apply w-full border-collapse shadow-sm overflow-hidden rounded-xl;
+}
+
+.table th {
+  @apply bg-blue-700 text-white text-left p-3;
+}
+
+.table td {
+  @apply p-3 border-b bg-white;
+}
+
+/* Inputs */
+.input {
+  @apply border rounded-lg p-2 w-full bg-white shadow-sm focus:ring-2 focus:ring-blue-600 outline-none;
+}
+
+/* Buttons */
+.btn-blue {
+  @apply bg-blue-700 text-white px-4 py-2 rounded-lg shadow hover:bg-blue-800 transition;
+}
+
+.btn-gray {
+  @apply bg-gray-300 text-gray-800 px-4 py-2 rounded-lg shadow hover:bg-gray-400 transition;
 }
